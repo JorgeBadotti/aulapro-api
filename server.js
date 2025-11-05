@@ -9,6 +9,10 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // para <form>
 app.use(express.static('public'));               // serve index.html, api.html, teste.html etc.
+// Rota raiz — mostra status da API
+app.get('/', (req, res) => {
+  res.send('AulaPro API ✅ Servidor ativo no Railway!');
+});
 
 // Rotas básicas
 app.get('/', (req, res) => {
