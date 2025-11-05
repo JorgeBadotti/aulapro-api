@@ -3,20 +3,17 @@ const express = require('express');
 const db = require('./database');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080; // ✅ Railway define PORT automaticamente
 
-// Middlewares (uma vez só)
+// --- MIDDLEWARES ---
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // para <form>
-app.use(express.static('public'));               // serve index.html, api.html, teste.html etc.
+app.use(express.static('public')); // serve index.html, api.html, etc.
+
+// --- ROTAS ---
 // Rota raiz — mostra status da API
 app.get('/', (req, res) => {
   res.send('AulaPro API ✅ Servidor ativo no Railway!');
-});
-
-// Rotas básicas
-app.get('/', (req, res) => {
-  res.send('AulaPro API ✅');
 });
 
 app.get('/sobre', (req, res) => {
@@ -86,9 +83,7 @@ app.delete('/alunos/:id', (req, res) => {
   });
 });
 
-// Start
-app.listen(PORT, () => {
-  console.log(`Servidor rodando em http://localhost:${PORT}`);
+// --- INICIAR SERVIDOR ---
+app.listen(PORT, '0.0.0.0', () => { // ✅ precisa usar 0.0.0.0 no Railway
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
-
-
