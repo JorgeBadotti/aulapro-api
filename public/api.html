@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Teste com fetch</title>
+</head>
+<body>
+  <h1>POST /alunos (JSON)</h1>
+  <input id="nome" placeholder="Nome" />
+  <input id="email" placeholder="Email" />
+  <input id="whatsapp" placeholder="WhatsApp (+55 ...)" />
+  <button id="btn" type="button">Enviar</button>
+
+  <pre id="out"></pre>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const show = (obj) => { $('out').textContent = typeof obj === 'string'
+      ? obj
+      : JSON.stringify(obj, null, 2); };
+
+    $('btn').onclick = async () => {
+      const body = {
+        nome: $('nome').value.trim(),
+        email: $('email').value.trim(),
+        whatsapp: $('whatsapp').value.trim() || null
+      };
+
+      try {
+        const resp = await fetch('/alunos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        // tenta ler JSON só se houver conteúdo JSON
+        let data = null;
+        const ct = resp.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+          data = await resp.json().catch(() => null);
+        } else {
+          // pode ser 204 sem corpo ou texto simples
+          const text = await resp.text();
+          data = text || null;
+        }
+
+        if (!resp.ok) {
+          show((data && data.erro) || data || `Erro HTTP ${resp.status}`);
+          return;
+        }
+
+        show(data ?? 'OK (sem corpo na resposta)');
+      } catch (err) {
+        show('Falha na requisição: ' + (err?.message || err));
+      }
+    };
+  </script>
+</body>
+</html>

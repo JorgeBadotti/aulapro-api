@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8" />
+<title>AulaPro – Alunos (CRUD)</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 920px; margin: 24px auto; }
+  h1 { margin-bottom: 8px; }
+  form, table { width: 100%; margin-top: 16px; }
+  input { padding: 8px; margin: 4px 8px 4px 0; width: 240px; }
+  button { padding: 8px 12px; cursor: pointer; }
+  table { border-collapse: collapse; }
+  th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+  th { background: #f4f4f4; }
+  tr:hover { background: #fafafa; }
+  .row-actions button { margin-right: 6px; }
+  .muted { color: #777; font-size: 12px; }
+</style>
+<body>
+  <h1>Alunos</h1>
+  <div class="muted">Crie, edite e delete alunos. (Back: /alunos)</div>
+
+  <form id="formAluno">
+    <input type="hidden" id="id" />
+    <input id="nome" placeholder="Nome" required />
+    <input id="email" placeholder="Email" required />
+    <input id="whatsapp" placeholder="WhatsApp (+55 ...)" />
+    <button type="submit">Salvar</button>
+    <button type="button" id="btnCancelar" style="display:none">Cancelar edição</button>
+  </form>
+
+  <table id="tabela">
+    <thead>
+      <tr>
+        <th>ID</th><th>Nome</th><th>Email</th><th>WhatsApp</th><th>Ações</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+const api = (path, opts={}) => fetch(path, { headers: { 'Content-Type':'application/json' }, ...opts });
+
+async function carregar() {
+  const resp = await fetch('/alunos');
+  const dados = await resp.json();
+  const tbody = $('#tabela tbody');
+  tbody.innerHTML = '';
+  dados.forEach(a => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${a.id}</td>
+      <td>${a.nome}</td>
+      <td>${a.email}</td>
+      <td>${a.whatsapp ?? ''}</td>
+      <td class="row-actions">
+        <button data-editar="${a.id}">Editar</button>
+        <button data-deletar="${a.id}">Deletar</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+$('#tabela').addEventListener('click', async (e) => {
+  const idEdit = e.target.getAttribute('data-editar');
+  const idDel  = e.target.getAttribute('data-deletar');
+  if (idEdit) {
+    // carregar dados na edição
+    const linha = e.target.closest('tr').children;
+    $('#id').value = linha[0].textContent;
+    $('#nome').value = linha[1].textContent;
+    $('#email').value = linha[2].textContent;
+    $('#whatsapp').value = linha[3].textContent;
+    $('#btnCancelar').style.display = 'inline-block';
+  }
+  if (idDel) {
+    if (!confirm('Confirmar exclusão do aluno #' + idDel + '?')) return;
+    const resp = await api('/alunos/' + idDel, { method: 'DELETE' });
+    if (!resp.ok) {
+      const err = await resp.json().catch(()=>({erro:'Erro ao deletar'}));
+      alert(err.erro || 'Erro ao deletar');
+      return;
+    }
+    await carregar();
+  }
+});
+
+$('#btnCancelar').onclick = () => {
+  $('#id').value = '';
+  $('#nome').value = '';
+  $('#email').value = '';
+  $('#whatsapp').value = '';
+  $('#btnCancelar').style.display = 'none';
+};
+
+$('#formAluno').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = {
+    nome: $('#nome').value.trim(),
+    email: $('#email').value.trim(),
+    whatsapp: $('#whatsapp').value.trim() || null
+  };
+  const id = $('#id').value;
+  let resp;
+  if (id) {
+    // editar
+    resp = await api('/alunos/' + id, { method: 'PUT', body: JSON.stringify(payload) });
+  } else {
+    // criar
+    resp = await api('/alunos', { method: 'POST', body: JSON.stringify(payload) });
+  }
+  const data = await resp.json().catch(()=>null);
+  if (!resp.ok) {
+    alert((data && data.erro) || 'Erro na operação');
+    return;
+  }
+  $('#btnCancelar').click();
+  await carregar();
+});
+
+carregar();
+</script>
+</body>
+</html>
