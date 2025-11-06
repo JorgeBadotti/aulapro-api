@@ -1,23 +1,22 @@
+require('dotenv').config();
 const mysql = require('mysql2/promise');
 
-async function test() {
+async function testarConexao() {
   try {
-    const url = process.env.DATABASE_URL;
-    if (!url) {
-      console.error('Nenhuma variável DATABASE_URL encontrada. Defina $env:DATABASE_URL antes de executar.');
-      process.exit(1);
-    }
-
-    console.log('Tentando conectar usando DATABASE_URL:', url);
-    const conn = await mysql.createConnection(url);
-    const [rows] = await conn.query('SELECT 1 AS ok');
-    console.log('Conexão OK, resultado:', rows);
+    const conn = await mysql.createConnection({
+      host: process.env.MYSQLHOST,
+      user: process.env.MYSQLUSER,
+      password: process.env.MYSQLPASSWORD,
+      database: process.env.MYSQLDATABASE,
+      port: process.env.MYSQLPORT
+    });
+    console.log('✅ Conectado ao MySQL com sucesso!');
+    const [rows] = await conn.query('SELECT NOW() AS agora');
+    console.log('🕒 Hora no servidor MySQL:', rows[0].agora);
     await conn.end();
   } catch (err) {
-    console.error('Falha ao conectar ao MySQL:', err.message);
-    if (err.stack) console.error(err.stack);
-    process.exit(1);
+    console.error('❌ Erro ao conectar:', err.message);
   }
 }
 
-test();
+testarConexao();
