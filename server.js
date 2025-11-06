@@ -1,63 +1,40 @@
-// server.js
-const express = require('express');
-const path = require('path');
-const db = require('./database');
-
-const app = express();
-const PORT = process.env.PORT || 8080; // ✅ Railway define PORT automaticamente
-
-// --- MIDDLEWARES ---
-app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // para <form>
-app.use(express.static('public')); // serve index.html, api.html, etc.
-
-// --- ROTAS ---
-// Rota raiz — mostra status da API
-app.get('/', (req, res) => {
-  res.send('AulaPro API ✅ Servidor ativo no Railway!');
-});
-
-app.get('/sobre', (req, res) => {
-  res.send('Servidor AulaPro — criado por Jorge!');
-});
-
-// Atalho: servir a página CRUD sem a extensão
-app.get('/crud', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'crud.html'));
-});
-
 // ---------- ALUNOS ----------
 
 // LISTAR
-app.get('/alunos', (req, res) => {
-  const sql = 'SELECT id, nome, email, whatsapp FROM alunos ORDER BY id DESC';
-  db.all(sql, [], (err, rows) => {
-    if (err) return res.status(500).json({ erro: 'erro ao listar alunos' });
+app.get('/alunos', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT id, nome, email, whatsapp FROM alunos ORDER BY id DESC');
     res.json(rows);
-  });
+  } catch (err) {
+    console.error('Erro ao listar alunos:', err);
+    res.status(500).json({ erro: 'erro ao listar alunos' });
+  }
 });
 
 // CRIAR
-app.post('/alunos', (req, res) => {
+app.post('/alunos', async (req, res) => {
   const { nome, email, whatsapp } = req.body;
   if (!nome || !email) {
     return res.status(400).json({ erro: 'nome e email são obrigatórios' });
   }
 
-  const sql = 'INSERT INTO alunos (nome, email, whatsapp) VALUES (?, ?, ?)';
-  db.run(sql, [nome, email, whatsapp || null], function (err) {
-    if (err) {
-      if (err.message?.includes('UNIQUE')) {
-        return res.status(409).json({ erro: 'email já cadastrado' });
-      }
-      return res.status(500).json({ erro: 'erro ao inserir aluno' });
+  try {
+    const [result] = await db.query(
+      'INSERT INTO alunos (nome, email, whatsapp) VALUES (?, ?, ?)',
+      [nome, email, whatsapp || null]
+    );
+    res.status(201).json({ id: result.insertId, nome, email, whatsapp });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ erro: 'email já cadastrado' });
     }
-    res.status(201).json({ id: this.lastID, nome, email, whatsapp: whatsapp || null });
-  });
+    console.error('Erro ao inserir aluno:', err);
+    res.status(500).json({ erro: 'erro ao inserir aluno' });
+  }
 });
 
 // EDITAR
-app.put('/alunos/:id', (req, res) => {
+app.put('/alunos/:id', async (req, res) => {
   const { id } = req.params;
   const { nome, email, whatsapp } = req.body;
 
@@ -65,31 +42,37 @@ app.put('/alunos/:id', (req, res) => {
     return res.status(400).json({ erro: 'nome e email são obrigatórios' });
   }
 
-  const sql = 'UPDATE alunos SET nome = ?, email = ?, whatsapp = ? WHERE id = ?';
-  db.run(sql, [nome, email, whatsapp || null, id], function (err) {
-    if (err) {
-      if (err.message?.includes('UNIQUE')) {
-        return res.status(409).json({ erro: 'email já cadastrado' });
-      }
-      return res.status(500).json({ erro: 'erro ao atualizar aluno' });
+  try {
+    const [result] = await db.query(
+      'UPDATE alunos SET nome = ?, email = ?, whatsapp = ? WHERE id = ?',
+      [nome, email, whatsapp || null, id]
+    );
+
+    if (result.affectedRows === 0)
+      return res.status(404).json({ erro: 'aluno não encontrado' });
+
+    res.json({ id: Number(id), nome, email, whatsapp });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ erro: 'email já cadastrado' });
     }
-    if (this.changes === 0) return res.status(404).json({ erro: 'aluno não encontrado' });
-    res.json({ id: Number(id), nome, email, whatsapp: whatsapp || null });
-  });
+    console.error('Erro ao atualizar aluno:', err);
+    res.status(500).json({ erro: 'erro ao atualizar aluno' });
+  }
 });
 
 // DELETAR
-app.delete('/alunos/:id', (req, res) => {
+app.delete('/alunos/:id', async (req, res) => {
   const { id } = req.params;
-  const sql = 'DELETE FROM alunos WHERE id = ?';
-  db.run(sql, [id], function (err) {
-    if (err) return res.status(500).json({ erro: 'erro ao deletar aluno' });
-    if (this.changes === 0) return res.status(404).json({ erro: 'aluno não encontrado' });
-    res.json({ ok: true, id: Number(id) });
-  });
-});
+  try {
+    const [result] = await db.query('DELETE FROM alunos WHERE id = ?', [id]);
 
-// --- INICIAR SERVIDOR ---
-app.listen(PORT, '0.0.0.0', () => { // ✅ precisa usar 0.0.0.0 no Railway
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+    if (result.affectedRows === 0)
+      return res.status(404).json({ erro: 'aluno não encontrado' });
+
+    res.json({ ok: true, id: Number(id) });
+  } catch (err) {
+    console.error('Erro ao deletar aluno:', err);
+    res.status(500).json({ erro: 'erro ao deletar aluno' });
+  }
 });
