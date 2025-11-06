@@ -2,21 +2,25 @@
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
-// Railway cria automaticamente as variáveis MYSQL_URL, MYSQLHOST, etc.
+// Lê as variáveis do ambiente
 const {
   MYSQL_URL,
   MYSQLHOST,
   MYSQLPORT,
   MYSQLUSER,
   MYSQLPASSWORD,
-  MYSQLDATABASE,
+  MYSQLDATABASE
 } = process.env;
 
+// ⚙️ Detecta se está rodando no Railway (produção)
+const isRailway = process.env.RAILWAY_ENVIRONMENT_NAME !== undefined;
+
+// Configuração automática:
 const pool = MYSQL_URL
   ? mysql.createPool(MYSQL_URL)
   : mysql.createPool({
-      host: MYSQLHOST || 'localhost',
-      port: Number(MYSQLPORT || 3306),
+      host: isRailway ? (MYSQLHOST || 'mysql.railway.internal') : (MYSQLHOST || 'localhost'),
+      port: Number(MYSQLPORT || (isRailway ? 3306 : 22864)),
       user: MYSQLUSER || 'root',
       password: MYSQLPASSWORD || '',
       database: MYSQLDATABASE || 'aulapro',
@@ -24,5 +28,16 @@ const pool = MYSQL_URL
       connectionLimit: 10,
       queueLimit: 0,
     });
+
+// Teste rápido de conexão (opcional)
+(async () => {
+  try {
+    const conn = await pool.getConnection();
+    console.log('✅ Conectado ao MySQL:', conn.config.host, '(porta', conn.config.port, ')');
+    conn.release();
+  } catch (err) {
+    console.error('❌ Erro ao conectar ao banco MySQL:', err.message);
+  }
+})();
 
 module.exports = pool;
