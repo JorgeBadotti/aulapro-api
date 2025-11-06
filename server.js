@@ -1,5 +1,6 @@
 // server.js
 const express = require('express');
+const path = require('path');
 const db = require('./database');
 
 const app = express();
@@ -18,6 +19,11 @@ app.get('/', (req, res) => {
 
 app.get('/sobre', (req, res) => {
   res.send('Servidor AulaPro — criado por Jorge!');
+});
+
+// Atalho: servir a página CRUD sem a extensão
+app.get('/crud', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'crud.html'));
 });
 
 // ---------- ALUNOS ----------

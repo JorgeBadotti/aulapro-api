@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>CRUD Alunos</title>
+    <style>
+      body { font-family: Arial, sans-serif; max-width: 900px; margin: 24px auto; padding: 0 12px; }
+      h1 { margin-bottom: 8px; }
+      form { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px }
+      input[type=text], input[type=email] { padding:8px; border:1px solid #ccc; border-radius:4px; }
+      button { padding:8px 12px; border-radius:4px; border:1px solid #0a66ff; background:#0a66ff; color:#fff; cursor:pointer }
+      button.secondary { background:#fff; color:#0a66ff }
+      table { width:100%; border-collapse:collapse; margin-top:12px }
+      th, td { padding:8px; border:1px solid #eee; text-align:left }
+      tr:nth-child(even){ background:#fbfbfb }
+      .actions button { margin-right:6px }
+      pre#out { background:#111; color:#0f0; padding:12px; border-radius:6px; max-height:200px; overflow:auto }
+      .small { font-size:0.9em; color:#666 }
+    </style>
+  </head>
+  <body>
+    <h1>CRUD — Alunos</h1>
+
+    <form id="form">
+      <input id="nome" type="text" placeholder="Nome" required />
+      <input id="email" type="email" placeholder="Email" required />
+      <input id="whatsapp" type="text" placeholder="WhatsApp (+55 ...)" />
+      <input id="alunoId" type="hidden" />
+      <button id="submit">Criar</button>
+      <button id="cancel" type="button" class="secondary" style="display:none">Cancelar</button>
+      <span class="small" id="status" style="margin-left:8px"></span>
+    </form>
+
+    <div>
+      <strong>Lista de alunos</strong>
+      <button id="refresh" style="margin-left:12px">Atualizar</button>
+    </div>
+
+    <table id="table">
+      <thead>
+        <tr><th>ID</th><th>Nome</th><th>Email</th><th>WhatsApp</th><th>Ações</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <h3>Resposta</h3>
+    <pre id="out">(sem saída)</pre>
+
+    <script>
+      const form = document.getElementById('form');
+      const nomeIn = document.getElementById('nome');
+      const emailIn = document.getElementById('email');
+      const whatsappIn = document.getElementById('whatsapp');
+      const alunoIdIn = document.getElementById('alunoId');
+      const submitBtn = document.getElementById('submit');
+      const cancelBtn = document.getElementById('cancel');
+      const statusSpan = document.getElementById('status');
+      const out = document.getElementById('out');
+      const tbody = document.querySelector('#table tbody');
+      const refreshBtn = document.getElementById('refresh');
+
+      const base = '';
+
+      function show(msg){ out.textContent = typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2); }
+
+      async function listAlunos(){
+        statusSpan.textContent = 'Carregando...';
+        try{
+          const res = await fetch(base + '/alunos');
+          const data = await res.json();
+          renderTable(data);
+          show(data);
+        }catch(err){ show('Erro ao listar: ' + err.message); }
+        statusSpan.textContent = '';
+      }
+
+      function renderTable(items){
+        tbody.innerHTML = '';
+        if(!items || items.length === 0){
+          tbody.innerHTML = '<tr><td colspan="5">(nenhum registro)</td></tr>';
+          return;
+        }
+        items.forEach(it => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${it.id}</td>
+            <td>${escapeHtml(it.nome)}</td>
+            <td>${escapeHtml(it.email)}</td>
+            <td>${escapeHtml(it.whatsapp || '')}</td>
+            <td class="actions">
+              <button data-id="${it.id}" class="edit">Editar</button>
+              <button data-id="${it.id}" class="del">Excluir</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      function escapeHtml(s){ return (s+'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = alunoIdIn.value;
+        const body = { nome: nomeIn.value.trim(), email: emailIn.value.trim(), whatsapp: whatsappIn.value.trim() };
+        if(!body.nome || !body.email){ show('Preencha nome e email'); return; }
+
+        submitBtn.disabled = true;
+        statusSpan.textContent = id ? 'Atualizando...' : 'Enviando...';
+
+        try{
+          let res;
+          if(id){
+            res = await fetch(base + '/alunos/' + id, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+          } else {
+            res = await fetch(base + '/alunos', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+          }
+
+          const data = await res.json();
+          if(!res.ok){ show({ status: res.status, body: data }); }
+          else { show(data); resetForm(); listAlunos(); }
+        }catch(err){ show('Erro: ' + err.message); }
+        submitBtn.disabled = false;
+        statusSpan.textContent = '';
+      });
+
+      cancelBtn.addEventListener('click', () => resetForm());
+
+      tbody.addEventListener('click', async (e) => {
+        const edit = e.target.closest('button.edit');
+        if(edit){
+          const id = edit.dataset.id;
+          // fetch single aluno from list or reload
+          const res = await fetch(base + '/alunos');
+          const list = await res.json();
+          const item = list.find(x => String(x.id) === String(id));
+          if(item){ alunoIdIn.value = item.id; nomeIn.value = item.nome; emailIn.value = item.email; whatsappIn.value = item.whatsapp || ''; submitBtn.textContent = 'Salvar'; cancelBtn.style.display = 'inline-block'; }
+          return;
+        }
+
+        const del = e.target.closest('button.del');
+        if(del){
+          const id = del.dataset.id;
+          if(!confirm('Excluir aluno id ' + id + '?')) return;
+          try{
+            const res = await fetch(base + '/alunos/' + id, { method: 'DELETE' });
+            const data = await res.json();
+            show(data);
+            listAlunos();
+          }catch(err){ show('Erro ao excluir: ' + err.message); }
+        }
+      });
+
+      function resetForm(){ alunoIdIn.value=''; nomeIn.value=''; emailIn.value=''; whatsappIn.value=''; submitBtn.textContent='Criar'; cancelBtn.style.display='none'; }
+
+      refreshBtn.addEventListener('click', listAlunos);
+
+      // inicializa
+      listAlunos();
+    </script>
+  </body>
+</html>
