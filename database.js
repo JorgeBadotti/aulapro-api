@@ -7,16 +7,37 @@ if (process.env.MYSQLHOST || process.env.DATABASE_URL || process.env.MYSQLDATABA
   // Use mysql2 (promise) pool
   const mysql = require('mysql2/promise');
 
-  const pool = mysql.createPool({
+  // Support DATABASE_URL (eg. mysql://user:pass@host:port/db) by parsing it when explicit
+  // MYSQL_* vars are not provided. This makes the code work with platforms that expose
+  // a single DATABASE_URL environment variable (like Railway).
+  let cfg = {
     host: process.env.MYSQLHOST || undefined,
     user: process.env.MYSQLUSER || undefined,
     password: process.env.MYSQLPASSWORD || undefined,
     database: process.env.MYSQLDATABASE || undefined,
     port: process.env.MYSQLPORT ? Number(process.env.MYSQLPORT) : undefined,
+  };
+
+  if (process.env.DATABASE_URL) {
+    try {
+      const parsed = new URL(process.env.DATABASE_URL);
+      // Only override fields that are not already set explicitly
+      cfg.host = cfg.host || parsed.hostname;
+      cfg.port = cfg.port || (parsed.port ? Number(parsed.port) : undefined);
+      cfg.user = cfg.user || parsed.username;
+      cfg.password = cfg.password || parsed.password;
+      // pathname starts with '/', remove it
+      cfg.database = cfg.database || (parsed.pathname ? parsed.pathname.replace(/^\//, '') : undefined);
+    } catch (err) {
+      console.error('Falha ao parsear DATABASE_URL:', err.message);
+    }
+  }
+
+  const pool = mysql.createPool(Object.assign({
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
-  });
+  }, cfg));
 
   // Export the pool (mysql2 promise pool exposes query that returns [rows, fields])
   module.exports = pool;
