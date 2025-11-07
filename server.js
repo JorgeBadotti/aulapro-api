@@ -19,6 +19,9 @@ app.get('/crud', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'crud.html'));
 });
 
+// Healthcheck route for platforms / load balancers
+app.get('/health', (req, res) => res.sendStatus(200));
+
 // ---------- ALUNOS ----------
 
 // LISTAR
@@ -98,7 +101,45 @@ app.delete('/alunos/:id', async (req, res) => {
   }
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Servidor rodando em http://localhost:${PORT}`);
+// Start server (capture the server instance so we can log actual bind address and close gracefully)
+const server = app.listen(PORT, () => {
+  const addr = server.address();
+  const host = addr && addr.address ? addr.address : '0.0.0.0';
+  const port = addr && addr.port ? addr.port : PORT;
+  // If host is an IPv6 address (contains ':'), wrap it in [] for proper URL display
+  const hostDisplay = String(host).includes(':') ? `[${host}]` : host;
+  console.log(`Servidor rodando em http://${hostDisplay}:${port} (NODE_ENV=${process.env.NODE_ENV || 'development'})`);
+});
+
+// Make EADDRINUSE and other listen errors explicit in logs
+server.on('error', (err) => {
+  if (err && err.code === 'EADDRINUSE') {
+    console.error(`EADDRINUSE: a porta ${PORT} já está em uso. Verifique processos que possam estar escutando e tente novamente.`);
+    process.exit(1);
+  }
+  console.error('Erro no servidor:', err);
+});
+
+// Handle graceful shutdown and errors to aid debugging on platforms like Railway
+process.on('SIGTERM', () => {
+  console.log('SIGTERM recebido: fechando servidor...');
+  server.close(() => {
+    console.log('Servidor fechado com sucesso. Saindo.');
+    process.exit(0);
+  });
+  // If after 10s the server didn't close, force exit
+  setTimeout(() => {
+    console.error('Timeout ao fechar servidor, forçando exit.');
+    process.exit(1);
+  }, 10000).unref();
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('uncaughtException:', err);
+  // optional: give a moment to flush logs
+  setTimeout(() => process.exit(1), 1000).unref();
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('unhandledRejection:', reason);
 });

@@ -1,6 +1,7 @@
 // test-functional.js
 // Simple end-to-end test: create -> list -> update -> delete
-const base = 'http://localhost:3000';
+const PORT = process.env.PORT || 3000;
+const base = `http://localhost:${PORT}`;
 
 async function waitForServer(timeoutMs = 10000, intervalMs = 250) {
   const start = Date.now();
