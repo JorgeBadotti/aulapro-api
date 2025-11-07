@@ -53,6 +53,10 @@ app.post('/alunos', async (req, res) => {
       return res.status(409).json({ erro: 'email já cadastrado' });
     }
     console.error('Erro ao inserir aluno:', err);
+    // In debug mode expose the error message/stack in the JSON to help diagnose remote issues.
+    if (process.env.DEBUG_ERRORS === '1') {
+      return res.status(500).json({ erro: 'erro ao inserir aluno', message: err.message, stack: err.stack });
+    }
     res.status(500).json({ erro: 'erro ao inserir aluno' });
   }
 });
