@@ -1,3 +1,24 @@
+const express = require('express');
+const path = require('path');
+const db = require('./database');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middlewares
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
+
+// Rotas básicas
+app.get('/', (req, res) => res.send('AulaPro API ✅'));
+app.get('/sobre', (req, res) => res.send('Servidor AulaPro — criado por Jorge!'));
+
+// Atalho: servir a página CRUD sem a extensão
+app.get('/crud', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'crud.html'));
+});
+
 // ---------- ALUNOS ----------
 
 // LISTAR
@@ -75,4 +96,9 @@ app.delete('/alunos/:id', async (req, res) => {
     console.error('Erro ao deletar aluno:', err);
     res.status(500).json({ erro: 'erro ao deletar aluno' });
   }
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`Servidor rodando em http://localhost:${PORT}`);
 });
